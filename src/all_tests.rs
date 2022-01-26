@@ -1,4 +1,3 @@
-
 #[cfg(test)]
 mod test {
     use std::path::Path;
@@ -7,7 +6,6 @@ mod test {
     use std::fs::File;
     use std::io::{BufReader, Read, Write};
     use crate::dk_crypto::DkEncrypt;
-
 
     #[test]
     fn test_1() {
@@ -27,23 +25,18 @@ mod test {
         println!("<<s>> = {:?}", r0);
     }
 
-
     #[test]
     fn test_3() {
         //let s0 = DkEncrypt::decrypt_file(r#"C:\Users\denis\wks-tools\doka-export\data\x.2445182641ed49c89651d86dd7c468270000000000"#,
         //                                 "ZMBy1nxeze7dv59OCSeCoDayVijUQD96HyLev3YvhqM" );
         let mut f = File::create(r#"C:\Users\denis\wks-tools\doka-export\data\toto.pdf"#).expect("💣 WOOOOOOW !!");
-
         let s0 = DkEncrypt::decrypt_file(r#"C:\Users\denis\wks-tools\doka-export\data\x.24b19d42c416413c9f23ba6a20e079980000000000"#,
                                          "ZMBy1nxeze7dv59OCSeCoDayVijUQD96HyLev3YvhqM");
         let b0 = &s0.unwrap()[..];
-
         let _r0 = f.write_all(b0);
-
         let s1 = DkEncrypt::decrypt_file(r#"C:\Users\denis\wks-tools\doka-export\data\x.24b19d42c416413c9f23ba6a20e079980000000001"#,
                                          "ZMBy1nxeze7dv59OCSeCoDayVijUQD96HyLev3YvhqM");
         let b1 = &s1.unwrap()[..];
-
         let r0 = f.write_all(b1);
         println!("<<s>> = {:?}", r0);
     }
@@ -68,10 +61,8 @@ mod test {
             // dbg!(base, short);
 
             if reference_base != base {
-                // dbg!(base, reference_base);
                 // we have a new base !!!
                 let target_file = format!("{}{}.pdf", target, base);
-                // dbg!(&target_file);
                 f = Some(File::create(&target_file).expect("💣 WOOOOOOW !!"));
                 reference_base = base.to_owned().clone();
             }
@@ -81,12 +72,10 @@ mod test {
             let s0 = DkEncrypt::decrypt_file(p.path().to_str().unwrap()
                                              /*&string_name[..]*/, "ZMBy1nxeze7dv59OCSeCoDayVijUQD96HyLev3YvhqM");
             let b0 = &s0.unwrap()[..];
-
             if let Some(ff) = f.as_mut() {
                 // dbg!(&ff);
                 let _ = ff.write_all(b0);
             }
-
             println!("End: {}", p.path().display())
         }
     }
@@ -114,11 +103,10 @@ mod test {
         let mut buf: Vec<u8> = vec![];
         let _n = buf_reader.read_to_end(&mut buf).expect("Didn't read enough");
 
-
         // Read the CSV file
-//     let csv = "year,make,model,description
-// 1948,Porsche,356,Luxury sports car
-// 1967,Ford,Mustang fastback 1967,American car";
+        //  let csv = "year,make,model,description
+        // 1948,Porsche,356,Luxury sports car
+        // 1967,Ford,Mustang fastback 1967,American car";
 
         let mut reader = csv::Reader::from_reader(/*csv.as_bytes()*/ &buf[..]);
         // Loop over the csv data
@@ -133,11 +121,7 @@ mod test {
             );
 
             let target = r#"C:\Users\denis\wks-tools\doka-export\data\organized_file\"#;
-
             let new_folder = format!("{}{}\\{}", target, record.label, record.label_2);
-
-            // dbg!(&new_folder);
-
             fs::create_dir_all(Path::new(&new_folder));
             // find the corresponding file
 

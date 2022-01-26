@@ -7,24 +7,21 @@ use std::fs::{File};
 use std::io::Write;
 use std::{fs, io, iter};
 use std::ffi::OsStr;
-
 use std::sync::RwLock;
-
 use serde_derive::*;
 
 use log::*;
-
 use rocket::*;
 use rocket::request::FromRequest;
 use rocket::{Request, request};
 
 use rocket_okapi::{JsonSchema};
-
 use rocket_contrib::json::Json;
 
 mod conf_reader;
 mod dk_crypto;
 mod dk_crypto_error;
+mod all_tests;
 
 use conf_reader::*;
 use dk_crypto_error::DkCryptoError;
@@ -38,7 +35,6 @@ use rocket::http::{RawStr, Header, ContentType, Status, Method};
 use rocket::response::content::Html;
 
 lazy_static! {
-
     #[derive(Debug)]
     static ref PROPERTIES : RwLock<HashMap<u32, &'static mut HashMap<String,String>> > = RwLock::new(
         {
@@ -49,7 +45,6 @@ lazy_static! {
         });
 
 }
-
 
 #[derive(Serialize, Deserialize, Debug)]
 struct TokenId(String);
@@ -465,10 +460,7 @@ fn loginText(request: Json<LoginRequest>) -> Json<LoginReply> {
             Json(lr)
         }
     }
-
-
 }
-
 
 ///
 /// TODO THE TRACE ID / SESSION ID should be in the header

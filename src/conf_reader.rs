@@ -8,6 +8,9 @@ use std::collections::HashMap;
 
 use java_properties::read;
 
+///
+///
+///
 pub fn read_config( project_code : &str, var_name : &str ) -> HashMap<String, String> {
 
     let doka_env = match env::var(var_name) {
@@ -19,9 +22,6 @@ pub fn read_config( project_code : &str, var_name : &str ) -> HashMap<String, St
     };
 
     let config_path = Path::new(&doka_env).join(project_code).join("config/application.properties");
-
-    // dbg!(&config_path);
-
     let f = match File::open(&config_path) {
         Ok(o) => o,
         Err(e) => {
@@ -39,6 +39,5 @@ pub fn read_config( project_code : &str, var_name : &str ) -> HashMap<String, St
     };
 
     eprintln!("Configuration file : props={:?}", &props);
-
     props
 }
