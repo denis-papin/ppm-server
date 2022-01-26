@@ -51,18 +51,19 @@ lazy_static! {
 }
 
 
+#[derive(Serialize, Deserialize, Debug)]
+struct TokenId(String);
+
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 struct LoginRequest {
     user: String,
     password: String,
 }
 
-
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 struct LoginReply {
     token: String,
 }
-
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 struct AddKeyRequest {
@@ -75,7 +76,6 @@ struct AddKeyRequest {
 }
 
 type SearchReply = Vec<EntryReply>;
-
 type HistoryReply = HashMap<String, Vec<EntryReply>>;
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
@@ -97,12 +97,10 @@ struct AddKeyReply {
     success: bool,
 }
 
-
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 struct ClearTextReply {
     clear_text: String,
 }
-
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Secret {
@@ -137,18 +135,11 @@ impl Fairing for CORS {
     }
 
     fn on_response(&self, request: &Request, response: &mut Response) {
-
-
-        // We don't rely understand why we receive the http query first with "OPTIONS"
-        // And it fails because it does not find the implementation for this verb.
-
         info!("On Response [{}]", &request );
-
-        dbg!(&request);
-
         info!("On Response [{}]", &response.status() );
+
         let s = response.status();
-        dbg!(&s);
+        // dbg!(&s);
 
         if request.method() == Method::Options {
             response.set_status(Status::Ok);
@@ -159,12 +150,8 @@ impl Fairing for CORS {
         response.adjoin_raw_header("Access-Control-Allow-Origin", "*");
         response.adjoin_raw_header("Access-Control-Allow-Credentials", "true");
         response.adjoin_raw_header("Access-Control-Allow-Headers", "*");
-        // response.set_sized_body(Cursor::new("Response"));
-
     }
 }
-
-
 
 use rocket_contrib::templates::Template;
 use std::borrow::Cow;
@@ -173,31 +160,15 @@ use rs_uuid::iso::uuid_v4;
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::response::Responder;
 
-
 #[get("/decrypt/<encrypted_text>")]
 fn decrypt_key(encrypted_text: &RawStr, token: TokenId) -> Json<ClearTextReply> {
-
     let master_key = get_prop_value(&token.0);
-
     match DkEncrypt::decrypt_str(&encrypted_text, &master_key) {
         Ok(clear_key) =>  Json(ClearTextReply { clear_text: clear_key }),
         Err(_) => Json(ClearTextReply { clear_text: "".to_string()}),
     }
 }
 
-/**
-    List all the current keys.
-    Request :
-      string token_id;
-    Reply :
-        string customer_name
-        string customer_uuid
-        string customer_key
-
-TOKEN ID example : b69Rd6VGEac7PpHd3J-e-g
-
-*/
-// #[openapi]
 #[get("/history")]
 fn history(token: TokenId) -> Json<HistoryReply> {
     info!("🚀 Start key api, token_id=[{:?}]", &token);
@@ -208,20 +179,11 @@ fn history(token: TokenId) -> Json<HistoryReply> {
     let transactions_result = read_secret_file(&username, &master_key);
 
     // List of customer keys to return.
-
     let mut trans_map : HistoryReply = HashMap::new();
-
     match transactions_result {
         Ok(secret) => {
 
             for t in secret.transactions {
-
-                // let master_key = DkEncrypt::get_master_key();
-
-                // TODO return Error in case of failure.
-                //let dec = dk_decrypt_str(&c.ciphered_password, &master_key);
-                //// dbg!(&dec);
-
                 let key = EntryReply {
                     uuid: t.uuid,
                     order: t.order,
@@ -234,11 +196,9 @@ fn history(token: TokenId) -> Json<HistoryReply> {
                     timestamp: t.timestamp.to_string(),
                 };
 
-                // let new_title = (key.title.clone(), key.login.clone());
                 let new_title = format!("{}:{}", &key.title, &key.login);
                 match trans_map.get_mut(&new_title ) {
                     None => {
-                        // let new_title = format!("{}:{}", &key.title, &key.login);
                         let new_trans = vec![key];
                         let _ = &trans_map.insert(new_title, new_trans);
                     }
@@ -246,24 +206,19 @@ fn history(token: TokenId) -> Json<HistoryReply> {
                         transactions.push(key);
                     }
                 }
-
             }
         }
         Err(e) => {
             eprint!("{:?}", e);
-            // TODO
+            // TODO manage the error
         }
     }
 
-    // dbg!(&trans_map);
-
     info!("🏁 End key api, token=[{:?}]", &token);
-
     Json(trans_map)
 }
 
 fn filter_most_recent_transactions(secret : &'_ Secret) -> Vec<&'_ BusinessTransaction> {
-
     // keep a ref on the most recent (title, login)
     let mut most_recent : HashMap<(&'_ String, &'_ String), &'_ BusinessTransaction> = HashMap::new();
 
@@ -292,12 +247,12 @@ fn filter_most_recent_transactions(secret : &'_ Secret) -> Vec<&'_ BusinessTrans
 }
 
 
-/*
-"title": "Krypton",
-"username": "kara",
-"url": "https://krypton.com/kara_zorel",
-"notes": "toto@gmail.com",
-*/
+///
+///"title": "Krypton",
+///"username": "kara",
+///"url": "https://krypton.com/kara_zorel",
+///"notes": "toto@gmail.com",
+///
 #[get("/search?<chars>")]
 fn search(chars : Option<&RawStr>, token: TokenId) -> Json<SearchReply> {
 
@@ -312,33 +267,24 @@ fn search(chars : Option<&RawStr>, token: TokenId) -> Json<SearchReply> {
         }
     };
 
-
-    info!("chars [{}]", &to_be_searched);
+    debug!("chars [{}]", &to_be_searched);
 
     let (_, username) = parse_token(&token.0);
     let master_key = get_prop_value(&token.0);
-
     let transactions_result = read_secret_file(&username, &master_key);
 
     // List of entries to return.
 
     let mut replies: SearchReply = vec![];
-
-
     match transactions_result {
         Ok(secret) => {
 
             // Search only among the most recent entries
             let recent_transactions = filter_most_recent_transactions(&secret);
-
-            // // dbg!(&recent_transactions);
-
-            // for t in secret.transactions {
             for t in recent_transactions {
 
                 let lower_url = t.url.as_ref().unwrap_or(&"".to_string()).to_lowercase();
                 let lower_notes = t.notes.as_ref().unwrap_or(&"".to_string()).to_lowercase();
-
 
                 if t.title.to_lowercase().contains(&to_be_searched)
                     || t.login.to_lowercase().contains(&to_be_searched)
@@ -363,21 +309,17 @@ fn search(chars : Option<&RawStr>, token: TokenId) -> Json<SearchReply> {
         }
         Err(e) => {
             eprint!("{:?}", e);
-            // TODO
+            // TODO manage errors
         }
     }
 
-   // // dbg!(&replies);
-
     info!("🏁 End search, token=[{:?}]", &token);
-
     Json(replies)
 }
 
 
 #[get("/transaction")]
 fn transaction(token: TokenId) -> Json<Secret> {
-
     info!("🚀 Start transaction, token_id=[{:?}]", &token);
 
     let (_, username) = parse_token(&token.0);
@@ -386,9 +328,6 @@ fn transaction(token: TokenId) -> Json<Secret> {
     let transactions_result = read_secret_file(&username, &master_key);
 
     // List of entry keys to return.
-
-    // let mut trans_map : CustomerKeyReply = HashMap::new();
-
     let ret = match transactions_result {
         Ok(secret) => {
             Json(secret)
@@ -399,26 +338,16 @@ fn transaction(token: TokenId) -> Json<Secret> {
             Json(Secret{transactions: vec![]})
         }
     };
-
-    // // dbg!(&trans_map);
-
     info!("🏁 End transaction, token=[{:?}]", &token);
-
     ret
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-struct TokenId(String);
 
 impl<'a, 'r> FromRequest<'a, 'r> for TokenId {
     type Error = ();
-
     fn from_request(my_request: &'a Request<'r>) -> request::Outcome<Self, Self::Error> {
-        // let keys: Vec<_> = request.headers().get("token-id").collect();
         let map = my_request.headers();
-        // // dbg!(&map);
         let token = map.get_one("token_id").unwrap();
-        // dbg!(&token);
         request::Outcome::Success(TokenId(token.to_string()))
     }
 }
@@ -432,8 +361,8 @@ fn parse_token(token_str : &str) -> (String, String) {
     (parts.get(0).unwrap().to_string(), parts.get(1).unwrap().to_string())
 }
 
-// ppm setup -u denis -p "my password"
-// Create an empty file with the username, perform the login process
+/// ppm setup -u denis -p "my password"
+/// Create an empty file with the username, perform the login process
 #[post("/setup", format = "application/json", data = "<request>")]
 fn setup(request: Json<LoginRequest>) -> Json<LoginReply> {
 
@@ -444,7 +373,6 @@ fn setup(request: Json<LoginRequest>) -> Json<LoginReply> {
     // dbg!(&master_key);
     let token_str = create_token(&request.user);
     set_prop_value(token_str.as_ref(), &master_key);
-    // dbg!(get_prop_value(&token_str));
 
     // Create the encrypted user's file
     let secret_folder = get_secret_folder();
@@ -465,29 +393,14 @@ fn setup(request: Json<LoginRequest>) -> Json<LoginReply> {
             let lr = LoginReply {
                 token: "ERROR".to_string()
             };
-
             Json(lr)
         }
     }
-
-
 }
 
-
-// impl<'r> Responder<'r> for LoginReply {
-//     fn respond_to(self, req: &Request) -> response::Result<'r> {
-//         info!(">>> Prepare the response object");
-//         Response::build_from(self.respond_to(&req).unwrap())
-//             .status(Status::Ok)
-//             .header(ContentType::JSON)
-//             .ok()
-//     }
-// }
-
-
-// Get the credential in parameters and store the generated master key
-// in the global properties
-// ppm login -u denis -p "my password"
+/// Get the credential in parameters and store the generated master key
+/// in the global properties
+/// ppm login -u denis -p "my password"
 #[post("/login", format = "application/json", data = "<request>")]
 fn login(request: Json<LoginRequest>) -> Json<LoginReply> {
 
@@ -525,22 +438,13 @@ fn login(request: Json<LoginRequest>) -> Json<LoginReply> {
     Json(lr)
 }
 
-
-
-// TODO TO BE REMOVED
 #[post("/login/text", format = "text/plain", data = "<request>")]
 fn loginText(request: Json<LoginRequest>) -> Json<LoginReply> {
-
-    // dbg!(&request);
-
     // We use a constant salt here, and it's good because we need the same hash all the time
     let master_key = DkEncrypt::hash_with_salt(&request.password);
 
-    // dbg!(&master_key);
-
     let token_str = create_token(&request.user);
     set_prop_value(token_str.as_ref(), &master_key);
-    // dbg!(get_prop_value(&token_str));
 
     // Try to decrypt the file to test the password hash
     let res_secret_result = read_secret_file(&request.user, &master_key);
@@ -566,16 +470,12 @@ fn loginText(request: Json<LoginRequest>) -> Json<LoginReply> {
 }
 
 
-/**
-TODO THE TRACE ID / SESSION ID should be in the header
-*/
-// ppm add --title  "Gmail"  --user "deniz@gmail.com" --password "my funky pass"  --url "https://gmail.com"  --note "Always Https"  [--update]
+///
+/// TODO THE TRACE ID / SESSION ID should be in the header
+///
+/// ppm add --title  "Gmail"  --user "deniz@gmail.com" --password "my funky pass"  --url "https://gmail.com"  --note "Always Https"  [--update]
 #[post("/add_key", format = "application/json", data = "<request>")]
 fn add_key(request: Json<AddKeyRequest>, token: TokenId) -> Json<AddKeyReply> {
-
-    // dbg!(&request);
-    // dbg!(&token);
-
     let (_, username) = parse_token(&token.0);
     let master_key = get_prop_value(&token.0);
 
@@ -669,13 +569,12 @@ fn count_entry_for_target(secret: &Secret, customer: &str ) -> u64 {
     return count;
 }
 
-// TODO check if the username is compatible with a filename
-// Build the secret file name : secret_folder + <username> + ".crypt"
-// Username is stored in the token : base64(token = uuid + "_" + <username>)
+/// TODO check if the username is compatible with a filename
+/// Build the secret file name : secret_folder + <username> + ".crypt"
+/// Username is stored in the token : base64(token = uuid + "_" + <username>)
 fn store_to_file2(secret: &Secret, secret_folder: &str, username : &str, master_key : &str) -> io::Result<u64> {
 
     // ** Archive the original customer file into customer_archive_2020_05_22.enc
-
     use chrono::{DateTime, Utc};
 
     let now: DateTime<Utc> = Utc::now();
@@ -697,15 +596,6 @@ fn store_to_file2(secret: &Secret, secret_folder: &str, username : &str, master_
         info!("The file does not exists");
     }
 
-    // Move data to secret v2
-    // let mut secretv2 = Secret { transactions : vec![] };
-    //
-    // for trans in &secret.transactions {
-    //     let mut trans2 = trans.clone();
-    //     trans2.login = Some(trans2.title.clone());
-    //     secretv2.transactions.push(trans2);
-    // }
-
     // ** Transform the transactions into json
     let json_transactions = serde_json::to_string(&secret)?;
 
@@ -722,16 +612,13 @@ fn store_to_file2(secret: &Secret, secret_folder: &str, username : &str, master_
 }
 
 
-/**
-    Serialize the config informations
-    Store into a file
-*/
+///
+///    Serialize the config informations
+///    Store into a file
+///
 fn store_to_file(secret: &Secret, secret_file: &str) -> io::Result<u64> {
-
-
     // ** Archive the original customer file into customer_archive_2020_05_22.enc
 
-    //extern crate chrono;
     use chrono::{DateTime, Utc};
 
     let ext = Path::new(secret_file).extension().and_then(OsStr::to_str).unwrap_or("");
@@ -795,7 +682,6 @@ fn get_secret_folder() -> String {
     folder
 }
 
-// "app.customerfile"
 fn get_prop_value(prop_name : &str) -> String {
 
     // https://doc.rust-lang.org/std/sync/struct.RwLock.html
@@ -808,32 +694,25 @@ fn get_prop_value(prop_name : &str) -> String {
 }
 
 fn set_prop_value(prop_name : &str, value : &str ) -> () {
-
     if let Ok(write_guard) = PROPERTIES.write().as_mut() {
-        // the returned write_guard implements `Deref` giving us easy access to the target value
 
+        // the returned write_guard implements `Deref` giving us easy access to the target value
         if let map = write_guard.deref_mut() {
             if  let Some( item ) = map.get_mut(&0) {
                 item.insert(prop_name.to_string(), value.to_string());
             }
         }
     }
-
     ()
 }
 
 
 fn read_secret_file(username : &str, master_key : &str) -> Result<Secret, DkCryptoError> {
-
-    // let master_key = get_prop_value(token);
-    // let customer_path = get_secret_file_name();
     let current_fullpath = get_secret_file_name(username);
-
-    // dbg!(&current_fullpath);
 
     // Check if the customer file exists
     if ! Path::new(&current_fullpath).exists() {
-        // create a simple secret TODO NOOO Return an error saying you must init the secret file
+        // create a simple secret
         let secret : Secret = Secret { transactions: vec![] };
         return Ok(secret);
     }
@@ -843,10 +722,7 @@ fn read_secret_file(username : &str, master_key : &str) -> Result<Secret, DkCryp
     // Read the customer file
     let json_transactions_result = DkEncrypt::decrypt_customer_file(current_fullpath.as_str(), &master_key);
 
-    // dbg!(&json_transactions_result);
-
     // The program stops for some reason here !!!
-
     let json_transactions: String;
     match json_transactions_result {
         Ok(v) => {
@@ -872,26 +748,10 @@ fn read_secret_file(username : &str, master_key : &str) -> Result<Secret, DkCryp
             secret_result = Err(dk_crypto_error::DkCryptoError);
         }
     }
-    // dbg!(&secret_result);
     secret_result
 }
 
 
-/**
-    Swagger doc.
-*/
-// fn get_docs() -> SwaggerUIConfig {
-//     use rocket_okapi::swagger_ui::UrlObject;
-//
-//     SwaggerUIConfig {
-//         // /denis/openapi.json // it works
-//         url: Some("/captcha/openapi.json".to_string()),
-//         urls: Some(vec![UrlObject::new("Captcha API", "/captcha/openapi.json")]),
-//     }
-// }
-
-/**
-*/
 fn main() {
     const PROGRAM_NAME: &str = "PPM Pretty Password Manager";
 
@@ -903,13 +763,9 @@ fn main() {
     println!("😎 Config file using PROJECT_CODE={} VAR_NAME={}", PROJECT_CODE, VAR_NAME);
 
     let props = read_config(PROJECT_CODE, VAR_NAME);
-
-    // dbg!(&props);
     set_props(props);
 
     let port = get_prop_value("server.port").parse::<u16>().unwrap();
-    // dbg!(port);
-
     let log_config: String = get_prop_value("log4rs.config");
 
     let log_config_path = Path::new(&log_config);
@@ -933,7 +789,6 @@ fn main() {
         .mount("/ppm", routes![history, add_key, decrypt_key, login, loginText,
             setup, transaction, search])
         .attach(CORS)
-        //.mount("/swagger", make_swagger_ui(&get_docs()))
         .launch();
 
     info!("🏁 End {}", PROGRAM_NAME);
