@@ -7,11 +7,11 @@ mod test {
     use std::io::{BufReader, Read, Write};
     use crate::dk_crypto::DkEncrypt;
 
-    #[test]
-    fn test_1() {
-        let s = DkEncrypt::decrypt_customer_file(r#"C:\Users\denis\wks-tools\doka-export\data\prodCustomer.enc"#);
-        println!("s = {:?}", &s);
-    }
+    // #[test]
+    // fn test_1() {
+    //     let s = DkEncrypt::decrypt_customer_file(r#"C:\Users\denis\wks-tools\doka-export\data\prodCustomer.enc"#);
+    //     println!("s = {:?}", &s);
+    // }
 
     #[test]
     fn test_2() {
@@ -68,9 +68,8 @@ mod test {
             }
 
             // Write the part
-            // dbg!(&string_name);
-            let s0 = DkEncrypt::decrypt_file(p.path().to_str().unwrap()
-                                             /*&string_name[..]*/, "ZMBy1nxeze7dv59OCSeCoDayVijUQD96HyLev3YvhqM");
+            let s0 = DkEncrypt::decrypt_file(p.path().to_str().unwrap(),
+                                             "ZMBy1nxeze7dv59OCSeCoDayVijUQD96HyLev3YvhqM");
             let b0 = &s0.unwrap()[..];
             if let Some(ff) = f.as_mut() {
                 // dbg!(&ff);
@@ -104,9 +103,9 @@ mod test {
         let _n = buf_reader.read_to_end(&mut buf).expect("Didn't read enough");
 
         // Read the CSV file
-        //  let csv = "year,make,model,description
+        // year,make,model,description
         // 1948,Porsche,356,Luxury sports car
-        // 1967,Ford,Mustang fastback 1967,American car";
+        // 1967,Ford,Mustang fastback 1967,American car
 
         let mut reader = csv::Reader::from_reader(/*csv.as_bytes()*/ &buf[..]);
         // Loop over the csv data

@@ -5,7 +5,7 @@ use std::io::{BufReader};
 use std::io::Read;
 
 use rustc_serialize;
-use rustc_serialize::base64::{ToBase64, FromBase64, URL_SAFE, STANDARD};
+use rustc_serialize::base64::{ToBase64, FromBase64, URL_SAFE};
 
 use crypto;
 use crypto::aes::{self};
@@ -99,7 +99,7 @@ impl DkEncrypt {
         let mut buf_reader = BufReader::new(file);
         let mut buf : Vec<u8> = vec![];
         let _n = buf_reader.read_to_end(&mut buf).expect("Didn't read enough");
-        let s = buf.to_base64(URL_SAFE);
+        let _ = buf.to_base64(URL_SAFE);
 
         let bin_content = DkEncrypt::decrypt_vec(&buf, &master_key);
 
@@ -151,21 +151,10 @@ impl DkEncrypt {
 
         let mut bytes: Vec<u8> = repeat(0u8).take(sha.output_bytes()).collect();
         sha.result(&mut bytes[..]);
-
         let key = bytes.to_base64(URL_SAFE);
-
         println!("base 64 : {}", &key);
 
         key
-    }
-
-    ///
-    ///
-    ///
-    pub fn get_master_key() -> String {
-        //let master_password = "Il faut viser la lune car même en cas d'échec on atterrit dans les étoiles";
-        let master_password = "le roi des mots de passe";
-        DkEncrypt::hash_with_salt(master_password)
     }
 
 }  // trait DkEncrypt

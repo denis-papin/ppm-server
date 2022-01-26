@@ -5,8 +5,7 @@ use std::path::Path;
 use std::process::exit;
 use std::fs::{File};
 use std::io::Write;
-use std::{fs, io, iter};
-use std::ffi::OsStr;
+use std::{fs, io};
 use std::sync::RwLock;
 use serde_derive::*;
 
@@ -27,13 +26,16 @@ use conf_reader::*;
 use dk_crypto_error::DkCryptoError;
 use dk_crypto::{DkEncrypt};
 use lazy_static::*;
-use std::sync::{Mutex};
 use std::collections::HashMap;
-use chrono::{DateTime, Utc, TimeZone};
+use chrono::{DateTime, Utc};
 use chrono::serde::ts_milliseconds;
-use rocket::http::{RawStr, Header, ContentType, Status, Method};
-use rocket::response::content::Html;
+use rocket::http::{RawStr, ContentType, Status, Method};
 
+//
+// PROPERTIES must be locked when on write, but not locked on read actions
+// It contains a double map { 0 : { "server.port" : 30040, "app.secret-folder" : "/secret", .... },... }
+// where only the map[0] is used in our case.
+//
 lazy_static! {
     #[derive(Debug)]
     static ref PROPERTIES : RwLock<HashMap<u32, &'static mut HashMap<String,String>> > = RwLock::new(
@@ -43,7 +45,6 @@ lazy_static! {
             m.insert(0, Box::leak(Box::new( props )));
             m
         });
-
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -133,7 +134,7 @@ impl Fairing for CORS {
         info!("On Response [{}]", &request );
         info!("On Response [{}]", &response.status() );
 
-        let s = response.status();
+        let _ = response.status();
         // dbg!(&s);
 
         if request.method() == Method::Options {
@@ -148,12 +149,9 @@ impl Fairing for CORS {
     }
 }
 
-use rocket_contrib::templates::Template;
-use std::borrow::Cow;
 use rocket::config::Environment;
 use rs_uuid::iso::uuid_v4;
 use rocket::fairing::{Fairing, Info, Kind};
-use rocket::response::Responder;
 
 #[get("/decrypt/<encrypted_text>")]
 fn decrypt_key(encrypted_text: &RawStr, token: TokenId) -> Json<ClearTextReply> {
@@ -234,7 +232,7 @@ fn filter_most_recent_transactions(secret : &'_ Secret) -> Vec<&'_ BusinessTrans
     // Extract the list of business transactions from the map into a vec
     let mut eligible : Vec<&'_ BusinessTransaction> = vec![];
 
-    for (k,v) in most_recent {
+    for (_,v) in most_recent {
         eligible.push(v);
     }
 
@@ -298,7 +296,7 @@ fn search(chars : Option<&RawStr>, token: TokenId) -> Json<SearchReply> {
                         timestamp: t.timestamp.to_string(),
                     };
 
-                    &replies.push(entry);
+                    let _ = &replies.push(entry);
                 }
             }
         }
@@ -373,7 +371,7 @@ fn setup(request: Json<LoginRequest>) -> Json<LoginReply> {
     let secret_folder = get_secret_folder();
 
     let secret = Secret { transactions: vec![] };
-    let res_storage = store_to_file2(&secret, &secret_folder, &request.user, &master_key);
+    let res_storage = store_to_file(&secret, &secret_folder, &request.user, &master_key);
 
     // TODO handle error code and factorize
     match res_storage {
@@ -434,7 +432,7 @@ fn login(request: Json<LoginRequest>) -> Json<LoginReply> {
 }
 
 #[post("/login/text", format = "text/plain", data = "<request>")]
-fn loginText(request: Json<LoginRequest>) -> Json<LoginReply> {
+fn login_text(request: Json<LoginRequest>) -> Json<LoginReply> {
     // We use a constant salt here, and it's good because we need the same hash all the time
     let master_key = DkEncrypt::hash_with_salt(&request.password);
 
@@ -468,14 +466,14 @@ fn loginText(request: Json<LoginRequest>) -> Json<LoginReply> {
 /// ppm add --title  "Gmail"  --user "deniz@gmail.com" --password "my funky pass"  --url "https://gmail.com"  --note "Always Https"  [--update]
 #[post("/add_key", format = "application/json", data = "<request>")]
 fn add_key(request: Json<AddKeyRequest>, token: TokenId) -> Json<AddKeyReply> {
+
+    use rs_uuid::iso::uuid_v4;
+
     let (_, username) = parse_token(&token.0);
     let master_key = get_prop_value(&token.0);
-
-    // let master_key = DkEncrypt::get_master_key();
-
-    // dbg!(&master_key);
-
     let pass_phrase = request.pass.as_str();
+
+    info!("🚀 Start add_key api, token_id={}", &token.0);
 
     // The pass phrase is not very important, it can be very long.
     // The significant password is the "key" which is the HASH(pass_phrase)
@@ -483,12 +481,9 @@ fn add_key(request: Json<AddKeyRequest>, token: TokenId) -> Json<AddKeyReply> {
 
     let enc_password = DkEncrypt::encrypt_str(pass_phrase, &master_key);
 
-    use rs_uuid::iso::uuid_v4;
-
-
-    // Read the customer config as an XML file et unmarshall it
-    // TODO If the file does not exist, the system crashes
-    //      Create a dummy Config object instead.
+    // TODO
+    //       If the file does not exist, the system crashes
+    //       Create a dummy Config object instead.
     let secret_result = read_secret_file(&username, &master_key);
 
     let entry_count_for_target = match &secret_result {
@@ -496,8 +491,6 @@ fn add_key(request: Json<AddKeyRequest>, token: TokenId) -> Json<AddKeyReply> {
         Err(_) => 0,
     };
 
-
-    // TODO pass it in param
     let transaction = BusinessTransaction {
         uuid: uuid_v4(),
         order: entry_count_for_target+1,
@@ -510,7 +503,7 @@ fn add_key(request: Json<AddKeyRequest>, token: TokenId) -> Json<AddKeyReply> {
         timestamp: Utc::now(),
     };
 
-    info!("🚀 Start add_key api, token_id={}, cust={:?}", &token.0, &transaction);
+    info!("Add the key in the transaction : token_id={}, transaction={:?}", &token.0, &transaction);
 
     // dbg!(&secret_result);
 
@@ -519,8 +512,8 @@ fn add_key(request: Json<AddKeyRequest>, token: TokenId) -> Json<AddKeyReply> {
         Ok(mut secret) => {
 
             secret.transactions.push(transaction);
-            let r_store = store_to_file2(&secret, get_secret_folder().as_str(),
-                                    &username, &master_key);
+            let r_store = store_to_file(&secret, get_secret_folder().as_str(),
+                                        &username, &master_key);
             match r_store {
                 Ok(_) => {
                     info!("😎 Customer file successfully copied");
@@ -550,6 +543,9 @@ fn add_key(request: Json<AddKeyRequest>, token: TokenId) -> Json<AddKeyReply> {
     Json(ret)
 }
 
+///
+///
+///
 fn count_entry_for_target(secret: &Secret, customer: &str ) -> u64 {
     let mut count: u64 = 0;
     for t in &secret.transactions {
@@ -557,17 +553,17 @@ fn count_entry_for_target(secret: &Secret, customer: &str ) -> u64 {
             count = count + 1;
         }
     }
-    // dbg!(count);
     return count;
 }
 
+///
 /// TODO check if the username is compatible with a filename
 /// Build the secret file name : secret_folder + <username> + ".crypt"
 /// Username is stored in the token : base64(token = uuid + "_" + <username>)
-fn store_to_file2(secret: &Secret, secret_folder: &str, username : &str, master_key : &str) -> io::Result<u64> {
+///
+fn store_to_file(secret: &Secret, secret_folder: &str, username : &str, master_key : &str) -> io::Result<u64> {
 
-    // ** Archive the original customer file into customer_archive_2020_05_22.enc
-    use chrono::{DateTime, Utc};
+    // Archive the original customer file into customer_archive_2020_05_22.enc
 
     let now: DateTime<Utc> = Utc::now();
     let current_date = now.format("%Y_%m_%d_%H_%M_%S").to_string();
@@ -588,15 +584,15 @@ fn store_to_file2(secret: &Secret, secret_folder: &str, username : &str, master_
         info!("The file does not exists");
     }
 
-    // ** Transform the transactions into json
+    // Transform the transactions into json
     let json_transactions = serde_json::to_string(&secret)?;
 
-    // ** Encrypt the final json string
+    // Encrypt the final json string
     let b = &json_transactions.into_bytes();
     let enc_json_transactions = DkEncrypt::encrypt_vec(&b, master_key).unwrap_or(vec![]);
 
 
-    // ** Store the encrypted json into the customer.enc file.
+    // Store the encrypted json into the customer.enc file.
     let mut f = File::create(&current_fullpath).expect("💣 Customer file should be here !!");
     let _r = f.write_all(&enc_json_transactions[..]);
 
@@ -604,101 +600,113 @@ fn store_to_file2(secret: &Secret, secret_folder: &str, username : &str, master_
 }
 
 
+// ///
+// ///    Serialize the config informations
+// ///    Store into a file
+// ///
+// fn store_to_file(secret: &Secret, secret_file: &str) -> io::Result<u64> {
+//
+//     // Archive the original customer file into customer_archive_2020_05_22.enc
+//
+//     use chrono::{DateTime, Utc};
+//
+//     let ext = Path::new(secret_file).extension().and_then(OsStr::to_str).unwrap_or("");
+//     let secret_file_no_ext = &secret_file[0..secret_file.len() - ext.len() - 1];
+//
+//     let now: DateTime<Utc> = Utc::now();
+//     let current_date = now.format("%Y_%m_%d_%H_%M_%S").to_string();
+//
+//     let mut target = String::from(secret_file_no_ext);
+//     target.push_str("_");
+//     target.push_str(current_date.as_str());
+//     target.push_str(".");
+//     target.push_str(ext);
+//
+//     info!("Want to copy the secret file to target=[{}]", &target);
+//
+//     let copy;
+//     if Path::new(secret_file).exists() {
+//         copy = fs::copy(secret_file, &target)?;
+//         info!("Copy done");
+//     } else {
+//         copy = 0;
+//         info!("The file does not exists");
+//     }
+//
+//     // Transform the transactions into json
+//     let json_transactions = serde_json::to_string(&secret)?;
+//
+//
+//     // Encrypt the final json string
+//     let master_key = DkEncrypt::get_master_key();
+//     let b = &json_transactions.into_bytes();
+//     let enc_json_transactions = DkEncrypt::encrypt_vec(&b, &master_key).unwrap_or(vec![]);
+//
+//
+//     // Store the encrypted json into the customer.enc file.
+//     let mut f = File::create(secret_file).expect("💣 Customer file should be here !!");
+//     let _r = f.write_all(&enc_json_transactions[..]);
+//
+//     Ok(copy)
+// }
+
 ///
-///    Serialize the config informations
-///    Store into a file
+/// Set properties[0] with the configuration file values
 ///
-fn store_to_file(secret: &Secret, secret_file: &str) -> io::Result<u64> {
-    // ** Archive the original customer file into customer_archive_2020_05_22.enc
-
-    use chrono::{DateTime, Utc};
-
-    let ext = Path::new(secret_file).extension().and_then(OsStr::to_str).unwrap_or("");
-
-    let secret_file_no_ext = &secret_file[0..secret_file.len() - ext.len() - 1];
-
-    let now: DateTime<Utc> = Utc::now();
-    let current_date = now.format("%Y_%m_%d_%H_%M_%S").to_string();
-
-    let mut target = String::from(secret_file_no_ext);
-    target.push_str("_");
-    target.push_str(current_date.as_str());
-    target.push_str(".");
-    target.push_str(ext);
-
-    info!("Want to copy the secret file to target=[{}]", &target);
-
-    let copy;
-    if Path::new(secret_file).exists() {
-        copy = fs::copy(secret_file, &target)?;
-        info!("Copy done");
-    } else {
-        copy = 0;
-        info!("The file does not exists");
-    }
-
-    // ** Transform the transactions into json
-    let json_transactions = serde_json::to_string(&secret)?;
-
-
-    // ** Encrypt the final json string
-    let master_key = DkEncrypt::get_master_key();
-    let b = &json_transactions.into_bytes();
-    let enc_json_transactions = DkEncrypt::encrypt_vec(&b, &master_key).unwrap_or(vec![]);
-
-
-    // ** Store the encrypted json into the customer.enc file.
-    let mut f = File::create(secret_file).expect("💣 Customer file should be here !!");
-    let _r = f.write_all(&enc_json_transactions[..]);
-
-    Ok(copy)
-}
-
 fn set_props(props : HashMap<String, String>) {
     let mut w = PROPERTIES.write().unwrap();
     let item = w.get_mut(&0).unwrap();
     *item = Box::leak(Box::new(props ));
 }
 
+///
+/// Build the secret file name from the username
+///
 fn get_secret_file_name(username : &str) -> String {
     let folder = get_secret_folder();
     let current_filename = format!("{}.crypt", &username);
-
     let path = Path::new(&folder).join(current_filename);
-
     path.into_os_string().into_string().unwrap()
 }
 
+///
+/// Get the secret folder name
+///
 fn get_secret_folder() -> String {
     let folder = get_prop_value("app.secret-folder");
     folder
 }
 
+///
+/// Get prop value
+///
 fn get_prop_value(prop_name : &str) -> String {
-
     // https://doc.rust-lang.org/std/sync/struct.RwLock.html
 
     let s = PROPERTIES.read().unwrap().deref().get(&0).unwrap().deref()
         .get(prop_name).unwrap().to_owned();
 
     s
-
 }
 
+///
+/// Change an entry in the properties
+///
 fn set_prop_value(prop_name : &str, value : &str ) -> () {
     if let Ok(write_guard) = PROPERTIES.write().as_mut() {
-
         // the returned write_guard implements `Deref` giving us easy access to the target value
-        if let map = write_guard.deref_mut() {
-            if  let Some( item ) = map.get_mut(&0) {
-                item.insert(prop_name.to_string(), value.to_string());
-            }
+        let map = write_guard.deref_mut();
+        if  let Some( item ) = map.get_mut(&0) {
+            item.insert(prop_name.to_string(), value.to_string());
         }
     }
     ()
 }
 
 
+///
+/// Read the entire secret file and place the content in a Secret structure
+///
 fn read_secret_file(username : &str, master_key : &str) -> Result<Secret, DkCryptoError> {
     let current_fullpath = get_secret_file_name(username);
 
@@ -727,20 +735,20 @@ fn read_secret_file(username : &str, master_key : &str) -> Result<Secret, DkCryp
     }
 
 
-    let transactions_result: Result<Secret, _> = serde_json::from_str(json_transactions.as_str());
+    let r_transactions: Result<Secret, _> = serde_json::from_str(json_transactions.as_str());
 
-    let secret_result: Result<Secret, DkCryptoError>;
-    match transactions_result {
-        Ok(transactions) => {
-            secret_result = Ok(transactions);
+    let r_secret: Result<Secret, DkCryptoError>;
+    match r_transactions {
+        Ok(secret) => {
+            r_secret = Ok(secret);
         }
         Err(e) => {
             eprint!("{:?}", e);
             // TODO change the error type.
-            secret_result = Err(dk_crypto_error::DkCryptoError);
+            r_secret = Err(dk_crypto_error::DkCryptoError);
         }
     }
-    secret_result
+    r_secret
 }
 
 
@@ -778,7 +786,7 @@ fn main() {
     my_config.set_port(port);
 
     rocket::custom(my_config)
-        .mount("/ppm", routes![history, add_key, decrypt_key, login, loginText,
+        .mount("/ppm", routes![history, add_key, decrypt_key, login, login_text,
             setup, transaction, search])
         .attach(CORS)
         .launch();
