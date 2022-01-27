@@ -9,14 +9,15 @@ use std::collections::HashMap;
 use java_properties::read;
 
 ///
-///
+/// Read the configuration file whose path is stored in an environment variable.
+/// The config file must be in a java properties file format.
 ///
 pub fn read_config( project_code : &str, var_name : &str ) -> HashMap<String, String> {
 
     let doka_env = match env::var(var_name) {
         Ok(env) => env,
         Err(e) => {
-            eprintln!("💣 Cannot find the DOKA_ENV system variable, {}", e);
+            eprintln!("💣 Cannot find the [{}] system variable, {}", &var_name, e);
             exit(-99);
         },
     };

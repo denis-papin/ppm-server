@@ -600,56 +600,6 @@ fn store_to_file(secret: &Secret, secret_folder: &str, username : &str, master_k
 }
 
 
-// ///
-// ///    Serialize the config informations
-// ///    Store into a file
-// ///
-// fn store_to_file(secret: &Secret, secret_file: &str) -> io::Result<u64> {
-//
-//     // Archive the original customer file into customer_archive_2020_05_22.enc
-//
-//     use chrono::{DateTime, Utc};
-//
-//     let ext = Path::new(secret_file).extension().and_then(OsStr::to_str).unwrap_or("");
-//     let secret_file_no_ext = &secret_file[0..secret_file.len() - ext.len() - 1];
-//
-//     let now: DateTime<Utc> = Utc::now();
-//     let current_date = now.format("%Y_%m_%d_%H_%M_%S").to_string();
-//
-//     let mut target = String::from(secret_file_no_ext);
-//     target.push_str("_");
-//     target.push_str(current_date.as_str());
-//     target.push_str(".");
-//     target.push_str(ext);
-//
-//     info!("Want to copy the secret file to target=[{}]", &target);
-//
-//     let copy;
-//     if Path::new(secret_file).exists() {
-//         copy = fs::copy(secret_file, &target)?;
-//         info!("Copy done");
-//     } else {
-//         copy = 0;
-//         info!("The file does not exists");
-//     }
-//
-//     // Transform the transactions into json
-//     let json_transactions = serde_json::to_string(&secret)?;
-//
-//
-//     // Encrypt the final json string
-//     let master_key = DkEncrypt::get_master_key();
-//     let b = &json_transactions.into_bytes();
-//     let enc_json_transactions = DkEncrypt::encrypt_vec(&b, &master_key).unwrap_or(vec![]);
-//
-//
-//     // Store the encrypted json into the customer.enc file.
-//     let mut f = File::create(secret_file).expect("💣 Customer file should be here !!");
-//     let _r = f.write_all(&enc_json_transactions[..]);
-//
-//     Ok(copy)
-// }
-
 ///
 /// Set properties[0] with the configuration file values
 ///
@@ -720,7 +670,7 @@ fn read_secret_file(username : &str, master_key : &str) -> Result<Secret, DkCryp
     info!("Read the crypted customer file : {}", &current_fullpath);
 
     // Read the customer file
-    let json_transactions_result = DkEncrypt::decrypt_customer_file(current_fullpath.as_str(), &master_key);
+    let json_transactions_result = DkEncrypt::decrypt_file(current_fullpath.as_str(), &master_key);
 
     // The program stops for some reason here !!!
     let json_transactions: String;

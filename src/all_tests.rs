@@ -7,20 +7,14 @@ mod test {
     use std::io::{BufReader, Read, Write};
     use crate::dk_crypto::DkEncrypt;
 
-    // #[test]
-    // fn test_1() {
-    //     let s = DkEncrypt::decrypt_customer_file(r#"C:\Users\denis\wks-tools\doka-export\data\prodCustomer.enc"#);
-    //     println!("s = {:?}", &s);
-    // }
-
     #[test]
     fn test_2() {
         let s0 = DkEncrypt::decrypt_file(r#"C:\Users\denis\wks-tools\doka-export\data\x.2445182641ed49c89651d86dd7c468270000000000"#,
                                          "ZMBy1nxeze7dv59OCSeCoDayVijUQD96HyLev3YvhqM");
-        let b0 = &s0.unwrap()[..];
-        // dbg!(b0.len());
+        let b = s0.unwrap().into_bytes();
+        // let b0 = &s0.unwrap()[..];
         let mut f = File::create(r#"C:\Users\denis\wks-tools\doka-export\data\toto.pdf"#).expect("💣 WOOOOOOW !!");
-        let r0 = f.write_all(b0);
+        let r0 = f.write_all(&b);
 
         println!("<<s>> = {:?}", r0);
     }
@@ -32,11 +26,11 @@ mod test {
         let mut f = File::create(r#"C:\Users\denis\wks-tools\doka-export\data\toto.pdf"#).expect("💣 WOOOOOOW !!");
         let s0 = DkEncrypt::decrypt_file(r#"C:\Users\denis\wks-tools\doka-export\data\x.24b19d42c416413c9f23ba6a20e079980000000000"#,
                                          "ZMBy1nxeze7dv59OCSeCoDayVijUQD96HyLev3YvhqM");
-        let b0 = &s0.unwrap()[..];
+        let b0 = &s0.unwrap().into_bytes()[..];
         let _r0 = f.write_all(b0);
         let s1 = DkEncrypt::decrypt_file(r#"C:\Users\denis\wks-tools\doka-export\data\x.24b19d42c416413c9f23ba6a20e079980000000001"#,
                                          "ZMBy1nxeze7dv59OCSeCoDayVijUQD96HyLev3YvhqM");
-        let b1 = &s1.unwrap()[..];
+        let b1 = &s1.unwrap().into_bytes()[..];
         let r0 = f.write_all(b1);
         println!("<<s>> = {:?}", r0);
     }
@@ -70,7 +64,7 @@ mod test {
             // Write the part
             let s0 = DkEncrypt::decrypt_file(p.path().to_str().unwrap(),
                                              "ZMBy1nxeze7dv59OCSeCoDayVijUQD96HyLev3YvhqM");
-            let b0 = &s0.unwrap()[..];
+            let b0 = &s0.unwrap().into_bytes()[..];
             if let Some(ff) = f.as_mut() {
                 // dbg!(&ff);
                 let _ = ff.write_all(b0);
@@ -82,11 +76,6 @@ mod test {
 
     #[derive(Deserialize)]
     struct Record {
-        /*    year: u16,
-        make: String,
-        model: String,
-        description: String,*/
-
         label: String,
         label_2: String,
         name: String,

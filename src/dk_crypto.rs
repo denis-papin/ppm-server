@@ -19,11 +19,10 @@ use crypto::symmetriccipher::SymmetricCipherError;
 use crate::dk_crypto_error;
 use crate::dk_crypto_error::*;
 
-/// Ensure the constant is obfuscated in the binary code.
+// Ensure the constant is obfuscated in the binary code.
 const SALT : obfstr::ObfString<[u8; 100]> = obfstr::obfconst!("vg6E748cXiifSsnErGlXr5KHXN35ANmUoa2VRiebAmllCKCxItIvYZXlqCYGl0BfAzJQ4hIzbrcbISZ07yxA8G9W9x7hbZKVekpX");
 
 pub(crate) struct DkEncrypt {
-
 }
 
 impl DkEncrypt {
@@ -73,7 +72,6 @@ impl DkEncrypt {
     //  We want "AES/CBC/PKCS5PADDING"
     //  base64 url key : O27AYTdNPNbG-7olPOUxDNb6GNnVzZpbGRa4qkhJ4BU
     //  crypted text : 5eftIdP8d4MFUU4KVUn-VQ3Tu_SACE47R01xt9KOhVCxGyVVRSn19yWnbXjOmg-cao6SW4itOM4cRUz33ZgQP_Ae5VtTmk-NsXtg5StaYlGX4QCljpO914xJkocNW_0TZCLvqzaNsTZKGzbPGXJlFMWy8JunbKMR1omkze5-w17Yxr2Gg1SpHU57SeqBCpvbkj5rMyF6skxp4LWMQzEBSj121n7VpXkmndtP-y4n7QOeQjTpW2tmXMhqpTyr-B5mhO7PXsMcNoIcWr7FCpGws14m_I8PNRaCN3nfpviXV5l1TbBa1noeE5HH0AFOs8IxqMLRmikA6bY8Av6IipDYnbZ7d2TO6SjGcE40Yvl3Z_e963Y4GLrbpnwj_9_V4_wNmUFROtj9AO5uRPzwEQdlKcGmiqfluTow-jG4ROJTnaggiCkaTEyFpcjhAye8VNahjo1rKBxecWzC1bp6SrH1-g-jFnMT5yrC7rko3fYvuN2LBpIldDziaJ3ahy3rRWIkelYIHigx6Zu__BZXSAkoKioQ6kvldsVDvFi1_NUISk3b9TOs5pNcopVJKhBEiJHoSUonICPj7UzxauyArh-RzNQQoZV19D03hXFNgXYJvPuXJ3upIpgFMaLC59NcAGZj0Q3H3uztAmkvpICr5Uv05FrmdiLKpN0lhKS0ETr2gVwuY_MRNTmI_V5Ud7SY6tutnLQtjrOFPNckPMQ1Yjyq_2b3FrClJ5fvunvfAEDh0RSKOx62GatWWtiuH7HDhkU_0pRC6QfnIL9W0W6YLnvlTKq_HaaVECuhp-PMRN6PQxkg5TOWOtjQ1IyvIosKfgBXhjyp5AhKlYevoOZqRyo0YxycviyCZUAq4-k5KzTaacDPMx_HYcpg0waPVIsE4DPtgLNQjDl2RaEGUKYntu89bYn47lFj3CP1j0umrWwJuJhznr5NtU7oxZ4Rlznq3lEjqNKkHnvUWD3Z8l68XWicvHWaZ9itH6IznD9GMksQYA-YbumI9wh4BIP1u1T-A9pHWRbWjpJP2sNVKMgLeIZhCy5go8uHDPIwNqTZFQLM59DtTrWCEJHQIP4KMabwHNDTBHvVQtn-EOQZP9kF7kMtYKsnmMlx12mS-fdG4qT_ko5zceYctXwiICT-DpWiRhfI2C29zRZqPLj0s3iuMo1xopL1fDX9b6gG2RywFZwZRtjEhiFi-lfpR-P7Jck61qu2V4sBx_OYNa78epKwelp6gwtSgmzOJjnPULmif9AL9HE
-
     pub fn decrypt_str(encrypted_text : &str, key : &str  ) -> Result<String, DkCryptoError > {
         let encrypted_data = encrypted_text.from_base64().unwrap();
         let decrypted_data = DkEncrypt::decrypt_vec(&encrypted_data, key);
@@ -91,8 +89,10 @@ impl DkEncrypt {
         }
     }
 
-
-    pub fn decrypt_customer_file(path : &str, master_key : &str ) -> Result<String, DkCryptoError > {
+    ///
+    /// Decrypt the an entire file
+    ///
+    pub fn decrypt_file(path : &str, master_key : &str ) -> Result<String, DkCryptoError > {
 
         //let file = File::open("C:/Users/denis/wks-steeple/tools/passinjector/data/debugCustomer.enc")?;
         let file = File::open(path).expect("Cannot read the customer file"); // TODO Error
@@ -106,30 +106,6 @@ impl DkEncrypt {
         let ret = match bin_content {
             Ok(v) => {
                 Ok(String::from_utf8(v).unwrap_or("".to_string()))
-            },
-            Err(_e) => {
-                // TODO LOG THE ERROR
-                Err( dk_crypto_error::DkCryptoError )
-            }
-        };
-
-        ret
-    }
-
-    pub fn _decrypt_file(path : &str,  master_key : &str ) -> Result<Vec<u8>, DkCryptoError> {
-
-        // path : "C:/Users/denis/wks-steeple/tools/passinjector/data/debugCustomer.enc"
-        let file = File::open(path).expect("Cannot read the customer file"); // TODO Error
-
-        let mut buf_reader = BufReader::new(file);
-        let mut buf : Vec<u8> = vec![];
-        let _n = buf_reader.read_to_end(&mut buf).expect("Didn't read enough");
-        let _s = buf.to_base64(URL_SAFE);
-
-        let bin_content = DkEncrypt::decrypt_vec(&buf, &master_key);
-        let ret = match bin_content {
-            Ok(v) => {
-                Ok(v)
             },
             Err(_e) => {
                 // TODO LOG THE ERROR
@@ -161,8 +137,9 @@ impl DkEncrypt {
 
 
 
-/// Encrypt a buffer with the given key and iv using
-/// AES-256/CBC/Pkcs encryption.
+///
+/// Encrypt binary data with the given key and iv using AES-256/CBC/Pkcs encryption.
+///
 fn encrypt(data: &[u8], key: &[u8], iv: &[u8]) -> Result<Vec<u8>, symmetriccipher::SymmetricCipherError> {
 
     // Create an encryptor instance of the best performing
@@ -192,7 +169,7 @@ fn encrypt(data: &[u8], key: &[u8], iv: &[u8]) -> Result<Vec<u8>, symmetricciphe
 }
 
 ///
-///
+/// Decrypt binary data with the key and iv.
 ///
 fn decrypt(encrypted_data: &[u8], key: &[u8], iv: &[u8]) -> Result<Vec<u8>, symmetriccipher::SymmetricCipherError> {
 
@@ -201,7 +178,7 @@ fn decrypt(encrypted_data: &[u8], key: &[u8], iv: &[u8]) -> Result<Vec<u8>, symm
         key,
         iv,
         blockmodes::PkcsPadding
-        /*blockmodes::NoPadding */);
+        );
 
     let mut final_result = Vec::<u8>::new();
     let mut read_buffer = buffer::RefReadBuffer::new(encrypted_data);
@@ -209,9 +186,7 @@ fn decrypt(encrypted_data: &[u8], key: &[u8], iv: &[u8]) -> Result<Vec<u8>, symm
     let mut write_buffer = buffer::RefWriteBuffer::new(&mut buffer);
 
     loop {
-
         let r_result = decryptor.decrypt(&mut read_buffer, &mut write_buffer, true);
-
         let result = match r_result {
             Ok(result) => {
                 result
@@ -232,7 +207,7 @@ fn decrypt(encrypted_data: &[u8], key: &[u8], iv: &[u8]) -> Result<Vec<u8>, symm
 
 
 ///
-///
+/// TODO this routine returns a constant value, please compute it ONCE.
 ///
 fn get_iv() -> [u8;16] {
     let mut md5 = Md5::new();
@@ -250,11 +225,7 @@ fn get_salt() -> String {
 pub fn decrypt_encrypt()  {
     let encrypted = "5eftIdP8d4MFUU4KVUn-VQ3Tu_SACE47R01xt9KOhVCxGyVVRSn19yWnbXjOmg-cao6SW4itOM4cRUz33ZgQP_Ae5VtTmk-NsXtg5StaYlGX4QCljpO914xJkocNW_0TZCLvqzaNsTZKGzbPGXJlFMWy8JunbKMR1omkze5-w17Yxr2Gg1SpHU57SeqBCpvbkj5rMyF6skxp4LWMQzEBSj121n7VpXkmndtP-y4n7QOeQjTpW2tmXMhqpTyr-B5mhO7PXsMcNoIcWr7FCpGws14m_I8PNRaCN3nfpviXV5l1TbBa1noeE5HH0AFOs8IxqMLRmikA6bY8Av6IipDYnbZ7d2TO6SjGcE40Yvl3Z_e963Y4GLrbpnwj_9_V4_wNmUFROtj9AO5uRPzwEQdlKcGmiqfluTow-jG4ROJTnaggiCkaTEyFpcjhAye8VNahjo1rKBxecWzC1bp6SrH1-g-jFnMT5yrC7rko3fYvuN2LBpIldDziaJ3ahy3rRWIkelYIHigx6Zu__BZXSAkoKioQ6kvldsVDvFi1_NUISk3b9TOs5pNcopVJKhBEiJHoSUonICPj7UzxauyArh-RzNQQoZV19D03hXFNgXYJvPuXJ3upIpgFMaLC59NcAGZj0Q3H3uztAmkvpICr5Uv05FrmdiLKpN0lhKS0ETr2gVwuY_MRNTmI_V5Ud7SY6tutnLQtjrOFPNckPMQ1Yjyq_2b3FrClJ5fvunvfAEDh0RSKOx62GatWWtiuH7HDhkU_0pRC6QfnIL9W0W6YLnvlTKq_HaaVECuhp-PMRN6PQxkg5TOWOtjQ1IyvIosKfgBXhjyp5AhKlYevoOZqRyo0YxycviyCZUAq4-k5KzTaacDPMx_HYcpg0waPVIsE4DPtgLNQjDl2RaEGUKYntu89bYn47lFj3CP1j0umrWwJuJhznr5NtU7oxZ4Rlznq3lEjqNKkHnvUWD3Z8l68XWicvHWaZ9itH6IznD9GMksQYA-YbumI9wh4BIP1u1T-A9pHWRbWjpJP2sNVKMgLeIZhCy5go8uHDPIwNqTZFQLM59DtTrWCEJHQIP4KMabwHNDTBHvVQtn-EOQZP9kF7kMtYKsnmMlx12mS-fdG4qT_ko5zceYctXwiICT-DpWiRhfI2C29zRZqPLj0s3iuMo1xopL1fDX9b6gG2RywFZwZRtjEhiFi-lfpR-P7Jck61qu2V4sBx_OYNa78epKwelp6gwtSgmzOJjnPULmif9AL9HE";
     let clear = DkEncrypt::decrypt_str(encrypted, "O27AYTdNPNbG-7olPOUxDNb6GNnVzZpbGRa4qkhJ4BU");
-    // dbg!(&clear);
-
     let new_encrypted = DkEncrypt::encrypt_str(&clear.unwrap(), "O27AYTdNPNbG-7olPOUxDNb6GNnVzZpbGRa4qkhJ4BU");
-
-    // dbg!(&new_encrypted);
     assert_eq!(&encrypted, &new_encrypted);
 }
 
@@ -262,12 +233,7 @@ pub fn decrypt_encrypt()  {
 pub fn encrypt_decrypt()  {
     let clear = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<config>\n   <customers>\n      <customer name=\"doka.live\">\n         <cipheredPassword>KgnCdO4pwroiQQfkve7lwtAOClu4N4MgKmpYvsOF5Xodq1EZT_vdeQ_Y_XSj53w8</cipheredPassword>\n         <enabled>true</enabled>\n         <masterKeyHash>gjzLNyQzpZtYOv_Z5XXAJhVdlrJ1X0nZQsHOGCiYmWU</masterKeyHash>\n      </customer>\n      <customer name=\"[[P2_MESSAGE]]\">\n         <cipheredPassword>NCEOHZq19Ta5VK7XkGZPTSP-lOBwkKzCn0DRPl0SKDJ3lsIRxsPUFBq6wNWW-Uiw</cipheredPassword>\n         <enabled>true</enabled>\n         <masterKeyHash>gjzLNyQzpZtYOv_Z5XXAJhVdlrJ1X0nZQsHOGCiYmWU</masterKeyHash>\n      </customer>\n      <customer name=\"SYSTEM\">\n         <cipheredPassword>DSnE3j0m9IqHzdNkAbFNw1So_CawWiUHxfHfJmdDIzjsBoRAXWwDWWITZH1pYXdQ</cipheredPassword>\n         <enabled>true</enabled>\n         <masterKeyHash>gjzLNyQzpZtYOv_Z5XXAJhVdlrJ1X0nZQsHOGCiYmWU</masterKeyHash>\n      </customer>\n   </customers>\n</config>\n";
     let encrypted = DkEncrypt::encrypt_str(clear, "O27AYTdNPNbG-7olPOUxDNb6GNnVzZpbGRa4qkhJ4BU");
-
-    // dbg!(&encrypted);
-
     let new_clear = DkEncrypt::decrypt_str(&encrypted, "O27AYTdNPNbG-7olPOUxDNb6GNnVzZpbGRa4qkhJ4BU");
-    // dbg!(&new_clear);
-
     assert_eq!(&clear, &new_clear.unwrap());
 }
 
