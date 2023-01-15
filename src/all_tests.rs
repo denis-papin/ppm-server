@@ -1,23 +1,60 @@
 #[cfg(test)]
 mod test {
     use std::path::Path;
-    use std::fs;
+    use std::{env, fs};
     use serde::{Deserialize};
     use std::fs::File;
     use std::io::{BufReader, Read, Write};
+    use std::process::exit;
     use crate::dk_crypto::DkEncrypt;
 
+
+    struct Context {
+        env : String,
+    }
+
+    fn init() -> Context {
+        // let doka_env = match env::var("PPM_ENV") {
+        //     Ok(env) => env,
+        //     Err(e) => {
+        //         eprintln!("💣 Cannot find the [{}] system variable, {}", &var_name, e);
+        //         exit(127);
+        //     },
+        // };
+
+        let env = "./env/test";
+        
+        Context {
+            env: env.to_string(),
+        }
+
+    }
+
+
     #[test]
-    fn test_2() {
-        let s0 = DkEncrypt::decrypt_file(r#"C:\Users\denis\wks-tools\doka-export\data\x.2445182641ed49c89651d86dd7c468270000000000"#,
-                                         "ZMBy1nxeze7dv59OCSeCoDayVijUQD96HyLev3YvhqM");
+    fn test_decrypt_secret_file() {
+
+        let ctx = init();
+
+        let secret_file = format!(r#"{}\toto.crypt"#, &ctx.env);
+        let output_file = format!(r#"{}\toto.txt"#, &ctx.env);
+
+        let s0 = DkEncrypt::decrypt_file(&secret_file,
+                                         "VpIS_U4u8mzzv4XWrerqTANfTmpeJ0kRhy8GZ5-fRoc");
         let b = s0.unwrap().into_bytes();
-        // let b0 = &s0.unwrap()[..];
-        let mut f = File::create(r#"C:\Users\denis\wks-tools\doka-export\data\toto.pdf"#).expect("💣 WOOOOOOW !!");
+        let mut f = File::create(&output_file).expect("💣 WOOOOOOW !!");
         let r0 = f.write_all(&b);
 
         println!("<<s>> = {:?}", r0);
+
+        // Assert
+
+
+        // Clean up
+
+
     }
+
 
     #[test]
     fn test_3() {

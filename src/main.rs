@@ -632,7 +632,6 @@ fn get_secret_folder() -> String {
 ///
 fn get_prop_value(prop_name : &str) -> String {
     // https://doc.rust-lang.org/std/sync/struct.RwLock.html
-
     let s = PROPERTIES.read().unwrap().deref().get(&0).unwrap().deref()
         .get(prop_name).unwrap().to_owned();
 
@@ -643,6 +642,9 @@ fn get_prop_value(prop_name : &str) -> String {
 /// Change an entry in the properties
 ///
 fn set_prop_value(prop_name : &str, value : &str ) -> () {
+
+    info!("Define property [{prop_name}], value : [{value}]");
+
     if let Ok(write_guard) = PROPERTIES.write().as_mut() {
         // the returned write_guard implements `Deref` giving us easy access to the target value
         let map = write_guard.deref_mut();

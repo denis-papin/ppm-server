@@ -23,6 +23,6 @@ Implement the central server communication with a matching code
 
 Every time we have a new device to peer, generate a matching code.
 
-The matching with stay valid until 
+The matching will stay valid until 
     we receive incorrect sync data during the sync process
 
