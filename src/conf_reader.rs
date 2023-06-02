@@ -7,12 +7,15 @@ use std::io::BufReader;
 use std::collections::HashMap;
 
 use java_properties::read;
+use log::info;
 
 ///
 /// Read the configuration file whose path is stored in an environment variable.
 /// The config file must be in a java properties file format.
 ///
 pub fn read_config( project_code : &str, var_name : &str ) -> HashMap<String, String> {
+
+    println!("Read the conf");
 
     let doka_env = match env::var(var_name) {
         Ok(env) => env,
@@ -23,6 +26,9 @@ pub fn read_config( project_code : &str, var_name : &str ) -> HashMap<String, St
     };
 
     let config_path = Path::new(&doka_env).join(project_code).join("config/application.properties");
+
+    println!("Read the config file at [{}]", config_path.to_str().unwrap());
+
     let f = match File::open(&config_path) {
         Ok(o) => o,
         Err(e) => {

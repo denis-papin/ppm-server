@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Barre d'information avec champ de recherche</title>
+    <script src="/ppm/static/js/ppm.js"></script>
+    <style>
+    .info-bar {
+      background-color: #f0f0f0;
+      padding: 10px;
+      display: flex;
+      align-items: center;
+    }
+
+    .info-bar img {
+      width: 20px;
+      height: 20px;
+      margin-right: 10px;
+    }
+
+    .search-form {
+      margin-top: 20px;
+    }
+
+    .search-form input[type="text"] {
+      padding: 5px;
+      font-size: 16px;
+    }
+
+    .search-form input[type="button"] {
+      padding: 5px 10px;
+      font-size: 16px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+    }
+
+/* Style des boîtes d'entrée */
+.result-block {
+  background-color: #ffffff;
+  border-radius: 4px;
+  padding: 10px;
+  margin-bottom: 20px;
+  box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+}
+
+    body {
+      background-color: #f2f2f2;
+    }
+
+/* Style du titre */
+.result-title {
+  font-size: 18px;
+  margin-bottom: 10px;
+}
+
+/* Style des champs */
+.result-value {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.result-value label {
+  margin-bottom: 5px;
+  padding-left: 5px;
+  font-weight: 600;
+  color : grey;
+}
+
+.result-value input {
+ border: 1px solid #ccc;
+  background-color: white;
+  padding: 10px;
+  font-size: 14px;
+  border-radius: 4px;
+  border-color: #ddd;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+
+
+/* Style de la grille responsive */
+.results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-gap: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+
+  </style>
+</head>
+<body>
+<div class="info-bar">
+    <img src="login-icon.png" alt="Login Icon">
+    <span>Connectez-vous pour accéder à votre compte</span>
+</div>
+
+<div class="search-form">
+    <input type="text" id="chars" placeholder="Recherche...">
+    <input type="button" value="Rechercher" onclick="performSearch(event)">
+    <input type="button" value="Ajouter" onclick="navigateInputPage('')">
+</div>
+
+<div id="results-container"></div>
+
+</body>
+</html>

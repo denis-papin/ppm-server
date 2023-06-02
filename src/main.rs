@@ -16,6 +16,7 @@ use rocket::{Request, request};
 
 use rocket_okapi::{JsonSchema};
 use rocket_contrib::json::Json;
+use rocket_contrib::serve::StaticFiles;
 
 mod conf_reader;
 mod dk_crypto;
@@ -45,6 +46,17 @@ lazy_static! {
             m.insert(0, Box::leak(Box::new( props )));
             m
         });
+}
+
+#[derive(Serialize)]
+struct TemplateContext {
+    message: String,
+}
+
+#[derive(Serialize)]
+struct CssTemplateContext {
+    size: u8,
+    font_family: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -141,7 +153,7 @@ impl Fairing for CORS {
             response.set_status(Status::Ok);
         }
 
-        response.adjoin_header(ContentType::JSON );
+        // TODO : response.adjoin_header(ContentType::JSON );
         response.adjoin_raw_header("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PATCH, DELETE");
         response.adjoin_raw_header("Access-Control-Allow-Origin", "*");
         response.adjoin_raw_header("Access-Control-Allow-Credentials", "true");
@@ -152,6 +164,63 @@ impl Fairing for CORS {
 use rocket::config::Environment;
 use rs_uuid::iso::uuid_v4;
 use rocket::fairing::{Fairing, Info, Kind};
+use rocket::response::content::{Css, Html, JavaScript};
+use rocket::response::Responder;
+use rocket_contrib::templates::{handlebars, Template};
+
+
+///
+/// ✨  Main component...
+///
+// Fonction pour gérer la page d'accueil
+#[get("/index")]
+fn index() -> Template {
+    // Création des données à afficher dans le template
+    let mut context = HashMap::new();
+    context.insert("title", "Page d'accueil");
+    context.insert("message", "Bienvenue sur notre site web!");
+
+    // Rendu du template avec les données
+    Template::render("index", &context)
+}
+
+#[get("/search_page")]
+fn search_page() -> Template {
+    let mut context = HashMap::new();
+    context.insert("title", "Page d'accueil");
+    context.insert("message", "Bienvenue sur notre site web!");
+
+    Template::render("search", &context)
+}
+
+#[get("/input_page")]
+fn input_page() -> Template {
+    let mut context = HashMap::new();
+    context.insert("title", "Page d'accueil");
+    context.insert("message", "Bienvenue sur notre site web!");
+
+    Template::render("input", &context)
+}
+
+#[get("/resort_info")]
+fn resort_info() -> Template {
+    // Création des données à afficher dans le template
+    let mut context = HashMap::new();
+    context.insert("componentName", "resort_info");
+    context.insert("address", "35, rue du grand canyon");
+    // Rendu du template avec les données
+    Template::render("resort_info", &context)
+}
+
+#[get("/info_bar")]
+fn info_bar() -> Template {
+    // Création des données à afficher dans le template
+    let mut context = HashMap::new();
+    context.insert("componentName", "info_bar");
+    context.insert("address", "35, rue du grand canyon");
+    // Rendu du template avec les données
+    Template::render("info_bar", &context)
+}
 
 #[get("/decrypt/<encrypted_text>")]
 fn decrypt_key(encrypted_text: &RawStr, token: TokenId) -> Json<ClearTextReply> {
@@ -209,6 +278,31 @@ fn history(token: TokenId) -> Json<HistoryReply> {
 
     info!("🏁 End key api, token=[{:?}]", &token);
     Json(trans_map)
+}
+
+/// An example of how to generate a js structure with some dynamic data in it
+#[get("/data.js")]
+fn script() -> JavaScript<String> {
+    let context = TemplateContext {
+        message: String::from("Hello, world!"),
+    };
+    let handlebars = handlebars::Handlebars::new();
+    let template_str = include_str!("data/local_data.js");
+    let js_code = handlebars.render_template(template_str, &context).unwrap();
+    JavaScript(js_code)
+}
+
+#[get("/style.css")]
+fn style() -> Css<String> {
+    let context = CssTemplateContext {
+        size: 2,
+        font_family: "Helvetica Neue,Helvetica,Arial,sans-serif".to_string(),
+    };
+    //let js_code = generate_js("style.css", &context);
+    let handlebars = handlebars::Handlebars::new();
+    let template_str = include_str!("dyn_css/style.css");
+    let js_code = handlebars.render_template(template_str, &context).unwrap();
+    Css(js_code)
 }
 
 fn filter_most_recent_transactions(secret : &'_ Secret) -> Vec<&'_ BusinessTransaction> {
@@ -710,7 +804,7 @@ fn main() {
     println!("😎 Init {}", PROGRAM_NAME);
 
     const PROJECT_CODE: &str = "ppm";
-    const VAR_NAME: &str = "DOKA_ENV";
+    const VAR_NAME: &str = "PPM_ENV";
 
     println!("😎 Config file using PROJECT_CODE={} VAR_NAME={}", PROJECT_CODE, VAR_NAME);
 
@@ -737,10 +831,21 @@ fn main() {
     let mut my_config = Config::new(Environment::Production);
     my_config.set_port(port);
 
+    let base_url = format!("/{}", PROJECT_CODE);
+    let base_static_url = format!("/{}/static", PROJECT_CODE);
+
     rocket::custom(my_config)
-        .mount("/ppm", routes![history, add_key, decrypt_key, login, login_text,
-            setup, transaction, search])
+        .mount(&base_static_url, StaticFiles::from("static"))
+        .mount(&base_url, routes![
+            history,
+            add_key,
+            decrypt_key,
+            login,
+            login_text,
+            setup, transaction, search,
+            index, search_page, input_page, style, script, resort_info, info_bar])
         .attach(CORS)
+        .attach(Template::fairing())
         .launch();
 
     info!("🏁 End {}", PROGRAM_NAME);
