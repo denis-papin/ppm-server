@@ -35,6 +35,11 @@ function navigateInputPage(uuid) {
     window.location.href = '/ppm/input_page';
 }
 
+async function showPass(encrypted) {
+    const clear = await decrypt(encrypted);
+    alert(clear);
+}
+
 function performSearch(event) {
     event.preventDefault();
     const searchInput = document.getElementById('chars');
@@ -91,14 +96,16 @@ function drawEntry(result) {
     const block = document.createElement('div');
     block.classList.add('result-block');
     localStorage.setItem(result.uuid, JSON.stringify(result));
-    block.appendChild(createField('UUID', result.uuid));
+    // block.appendChild(createField('UUID', result.uuid));
     block.appendChild(createField('Titre', result.title));
-    block.appendChild(createField('Order', result.order));
-    block.appendChild(createField('Nom', result.username));
-    block.appendChild(createField('Pass', result.encrypted_pass));
+    //block.appendChild(createField('Order', result.order));
+    block.appendChild(createField("Nom d'utilisateur", result.username));
+    block.appendChild(createField('Mot de passe', "•••••••" ));
+    // block.appendChild(createField('Mot de passe', result.encrypted_pass));
     block.appendChild(createField('Site Web', result.url));
     block.appendChild(createField('Notes', result.notes));
-    block.appendChild(createField('Date', result.timestamp));
+    block.appendChild(createField('Catégorie', 'Site web pro'));
+    //block.appendChild(createField('Date', result.timestamp));
 
     // Créer un élément bouton
     var button = document.createElement('button');
@@ -107,6 +114,14 @@ function drawEntry(result) {
     const uuid = result.uuid;
     button.onclick = () => navigateInputPage(uuid);
     block.appendChild(button);
+
+
+    // Créer un élément bouton "voir"
+    var bttnShow = document.createElement('button');
+    bttnShow.textContent = 'Voir Mot de passe';
+    bttnShow.onclick = () => showPass(result.encrypted_pass);
+    block.appendChild(bttnShow);
+
     return block;
 }
 
