@@ -35,6 +35,11 @@ function navigateInputPage(uuid) {
     window.location.href = '/ppm/input_page';
 }
 
+
+function navigateSetupPage() {
+    window.location.href = '/ppm/setup_page';
+}
+
 async function showPass(encrypted) {
     const clear = await decrypt(encrypted);
     alert(clear);
@@ -104,8 +109,12 @@ function drawEntry(result) {
     // block.appendChild(createField('Mot de passe', result.encrypted_pass));
     block.appendChild(createField('Site Web', result.url));
     block.appendChild(createField('Notes', result.notes));
-    block.appendChild(createField('Catégorie', 'Site web pro'));
-    //block.appendChild(createField('Date', result.timestamp));
+    const catEl = createField('Catégorie', result.category)
+    if (result.category !== null && result.category.trim() !== '' ) {
+        catEl.style.backgroundColor = generateRGBFromString(result.category);
+    }
+    block.appendChild(catEl);
+    // block
 
     // Créer un élément bouton
     var button = document.createElement('button');
@@ -114,7 +123,6 @@ function drawEntry(result) {
     const uuid = result.uuid;
     button.onclick = () => navigateInputPage(uuid);
     block.appendChild(button);
-
 
     // Créer un élément bouton "voir"
     var bttnShow = document.createElement('button');
@@ -125,9 +133,29 @@ function drawEntry(result) {
     return block;
 }
 
-async function decrypt(encrypted) {
+async function loadCategory() {
+    const global_token = localStorage.getItem('TOKEN');
+    try {
+        const response = await fetch('/ppm/categories', {
+            headers: {
+                'Content-Type': 'application/json',
+                'token_id': global_token
+            }
+        });
+        // if (!response.ok) {
+        //     throw new Error('Erreur lors de la requête');
+        // }
 
-    var global_token = localStorage.getItem('TOKEN');
+        const data = await response.json();
+        const categoriesJson = JSON.stringify(data)
+        localStorage.setItem('PPM_CATEGORY', categoriesJson)
+    } catch (error) {
+        console.error('Une erreur s\'est produite pendant la lecture des catégories:', error);
+    }
+}
+
+async function decrypt(encrypted) {
+    const global_token = localStorage.getItem('TOKEN');
     try {
         const response = await fetch(`/ppm/decrypt/${encodeURIComponent(encrypted)}`, {
             headers: {
@@ -135,24 +163,21 @@ async function decrypt(encrypted) {
                 'token_id': global_token
             }
         });
-        if (!response.ok) {
-            throw new Error('Erreur lors de la requête');
-        }
+        // if (!response.ok) {
+        //     throw new Error('Erreur lors de la requête');
+        // }
 
         const data = await response.json();
         const clearText = data.clear_text;
         return clearText;
-
-        // Faites ce que vous voulez avec clearText ici
     } catch (error) {
         console.error('Une erreur s\'est produite:', error);
     }
-
 }
 
 async function fillEntry() {
     console.log("start fill entry");
-    var uuid = localStorage.getItem('SELECTED_ENTRY');
+    const uuid = localStorage.getItem('SELECTED_ENTRY');
     if (uuid !== null && uuid !== "") {
         var data = JSON.parse(localStorage.getItem(uuid));
         var clear = await decrypt(data.encrypted_pass);
@@ -163,13 +188,60 @@ async function fillEntry() {
         document.getElementById('password').value = clear;
         document.getElementById('url').value = data.url;
         document.getElementById('notes').value = data.notes;
-        document.getElementById('category').value = "";
-
+        document.getElementById('category').value = data.category;
     }
     console.log(data);
 }
 
-function saveEntry() {
+function buildCatSelector() {
+
+    const listOfCategories = JSON.parse(localStorage.getItem('PPM_CATEGORY'))
+
+    // Remplir la liste des options avec les valeurs du tableau listOfCategories
+    $.each(listOfCategories, function(index, value) {
+        $('#categoryOptions').append('<option>' + value + '</option>');
+    });
+
+    // Afficher la boîte de sélection lorsque vous cliquez sur l'emoji œil
+    $('#eye').click(function() {
+        $('#categorySelection').show();
+    });
+
+    // Renvoyer la valeur sélectionnée dans l'input "category" lorsque vous choisissez une option
+    $('#categoryOptions').change(function() {
+        var selectedCategory = $(this).val();
+        $('#category').val(selectedCategory);
+        $('#categorySelection').hide();
+    });
+
+    // Masquer la boîte de sélection lorsque vous cliquez en dehors de celle-ci
+    $(document).mouseup(function(e) {
+        var container = $("#categorySelection");
+        if (!container.is(e.target) && container.has(e.target).length === 0) {
+            container.hide();
+        }
+    });
+
+}
+
+async function saveUser() {
+
+    var username = document.getElementById('username').value;
+    var password = document.getElementById('password').value;
+    // Récupérer la valeur du stockage local
+    var global_token = localStorage.getItem('TOKEN');
+
+    var form = {
+        "user": username,
+        "password": password,
+    };
+
+    $('#confirmation-box').fadeIn();
+
+    await postData(global_token, form, '/ppm/setup', null)
+}
+
+async function saveEntry() {
     var title = document.getElementById('title').value;
     var username = document.getElementById('username').value;
     var password = document.getElementById('password').value;
@@ -180,7 +252,7 @@ function saveEntry() {
     // Récupérer la valeur du stockage local
     var global_token = localStorage.getItem('TOKEN');
 
-    var data = {
+    var form = {
         "title": title,
         "username": username,
         "pass": password,
@@ -189,23 +261,64 @@ function saveEntry() {
         "category": category
     };
 
-    fetch(`/ppm/add_key`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'token_id': global_token
-        },
-        body: JSON.stringify(data)
-    })
-        .then(
-            response => response.json()
-        )
-        .then(
-            data => {
-                console.log(data);
-            })
-        .catch(error => {
-            console.error('Une erreur s\'est produite:', error);
+    $('#confirmation-box').fadeIn();
+
+    await postData(global_token, form, '/ppm/add_key', loadCategory )
+}
+
+async function postData(global_token, form, url, success_callback) {
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'token_id': global_token
+            },
+            body: JSON.stringify(form)
         });
+
+        const data = await response.json();
+        console.log(data);
+
+        setTimeout(function() {
+            $('#confirmation-box').fadeOut();
+        }, 700);
+
+        // Recharge la liste des catégories
+        if (success_callback !== null) {
+            await success_callback(); // loadCategory();
+        }
+    } catch (error) {
+        console.error('Une erreur s\'est produite:', error);
+
+        setTimeout(function() {
+            $('#confirmation-box').fadeOut();
+        }, 700);
+    }
+}
+
+function generateRGBFromString(str) {
+    const partLength = Math.ceil(str.length / 3);
+
+    const part1 = str.slice(0, partLength);
+    const part2 = str.slice(partLength, 2 * partLength);
+    const part3 = str.slice(2 * partLength);
+
+    const r = fromStrToColor(part1);
+    const g = fromStrToColor(part2);
+    const b = fromStrToColor(part3);
+
+    // Retourner le code couleur RGB sous forme d'une chaîne
+    return `rgb(${r}, ${g}, ${b})`;
+}
+
+function fromStrToColor(part) {
+    // Calculer la somme des codes ASCII des caractères dans la chaîne
+    let sum = 0;
+    for (let i = 0; i < part.length; i++) {
+        sum += part.charCodeAt(i);
+    }
+    const c = sum % 256;
+    return c;
 }
 

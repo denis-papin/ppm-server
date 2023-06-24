@@ -32,11 +32,9 @@ use chrono::{DateTime, Utc};
 use chrono::serde::ts_milliseconds;
 use rocket::http::{RawStr, ContentType, Status, Method};
 
-//
 // PROPERTIES must be locked when on write, but not locked on read actions
 // It contains a double map { 0 : { "server.port" : 30040, "app.secret-folder" : "/secret", .... },... }
 // where only the map[0] is used in our case.
-//
 lazy_static! {
     #[derive(Debug)]
     static ref PROPERTIES : RwLock<HashMap<u32, &'static mut HashMap<String,String>> > = RwLock::new(
@@ -81,6 +79,7 @@ struct AddKeyRequest {
     login: String,
     pass: String,
     notes: String,
+    category: Option<String>,
 }
 
 type SearchReply = Vec<EntryReply>;
@@ -96,6 +95,7 @@ struct EntryReply {
     encrypted_pass: String,
     url : Option<String>,
     notes: Option<String>,
+    category: Option<String>,
     active: bool,
     timestamp: String,
 }
@@ -126,6 +126,7 @@ struct BusinessTransaction {
     #[serde(rename = "cipheredPassword")]
     ciphered_password: String,
     notes: Option<String>,
+    category: Option<String>,
     enabled: String,
     #[serde(with = "ts_milliseconds")]
     timestamp: DateTime<Utc>,
@@ -168,7 +169,6 @@ use rocket::response::content::{Css, Html, JavaScript};
 use rocket::response::Responder;
 use rocket_contrib::templates::{handlebars, Template};
 
-
 ///
 /// ✨  Main component...
 ///
@@ -185,7 +185,7 @@ fn index() -> Template {
 }
 
 #[get("/search_page")]
-fn search_page() -> Template {
+pub fn search_page() -> Template {
     let mut context = HashMap::new();
     context.insert("title", "Page d'accueil");
     context.insert("message", "Bienvenue sur notre site web!");
@@ -194,12 +194,21 @@ fn search_page() -> Template {
 }
 
 #[get("/input_page")]
-fn input_page() -> Template {
+pub fn input_page() -> Template {
     let mut context = HashMap::new();
     context.insert("title", "Page d'accueil");
     context.insert("message", "Bienvenue sur notre site web!");
 
     Template::render("input", &context)
+}
+
+#[get("/setup_page")]
+pub fn setup_page() -> Template {
+    let mut context = HashMap::new();
+    context.insert("title", "Page d'accueil");
+    context.insert("message", "Bienvenue sur notre site web!");
+
+    Template::render("setup", &context)
 }
 
 #[get("/resort_info")]
@@ -254,6 +263,7 @@ fn history(token: TokenId) -> Json<HistoryReply> {
                     url : t.url,
                     encrypted_pass: t.ciphered_password,
                     notes: t.notes,
+                    category: None,
                     active: t.enabled == "true",
                     timestamp: t.timestamp.to_string(),
                 };
@@ -334,6 +344,18 @@ fn filter_most_recent_transactions(secret : &'_ Secret) -> Vec<&'_ BusinessTrans
 }
 
 
+fn filter_categories(secret : &'_ Secret) -> Vec<String> {
+    let mut categories : Vec<String> = vec![];
+    for transaction in &secret.transactions {
+        if let Some(category) = &transaction.category {
+            if !categories.contains(&category) && !category.trim().is_empty() {
+                 categories.push(category.clone());
+            }
+        }
+    }
+    categories
+}
+
 ///
 ///"title": "Krypton",
 ///"username": "kara",
@@ -386,6 +408,7 @@ fn search(chars : Option<&RawStr>, token: TokenId) -> Json<SearchReply> {
                         url: (&t.url).clone(),
                         encrypted_pass: (&t.ciphered_password).to_string(),
                         notes: (&t.notes).clone(),
+                        category: t.category.clone(),
                         active: t.enabled == "true",
                         timestamp: t.timestamp.to_string(),
                     };
@@ -402,6 +425,34 @@ fn search(chars : Option<&RawStr>, token: TokenId) -> Json<SearchReply> {
 
     info!("🏁 End search, token=[{:?}]", &token);
     Json(replies)
+}
+
+#[get("/categories")]
+fn categories(token: TokenId) -> Json<Vec<String>> {
+
+    info!("🚀 Start categories, token_id=[{:?}]", &token);
+
+    let (_, username) = parse_token(&token.0);
+    let master_key = get_prop_value(&token.0);
+    let transactions_result = read_secret_file(&username, &master_key);
+
+    // List of entries to return.
+
+    // let mut replies: Vec<String> = vec![];
+
+    let all_categories = match transactions_result {
+        Ok(secret) => {
+          filter_categories(&secret)
+        }
+        Err(e) => {
+            eprint!("{:?}", e);
+            // TODO manage errors
+            vec![]
+        }
+    };
+
+    info!("🏁 End categories, token=[{:?}]", &token);
+    Json(all_categories)
 }
 
 
@@ -593,6 +644,7 @@ fn add_key(request: Json<AddKeyRequest>, token: TokenId) -> Json<AddKeyReply> {
         login : request.login.clone(),
         ciphered_password: enc_password,
         notes: Some(request.notes.clone()),
+        category: request.category.clone(),
         enabled: "true".to_string(),
         timestamp: Utc::now(),
     };
@@ -657,6 +709,9 @@ fn count_entry_for_target(secret: &Secret, customer: &str ) -> u64 {
 ///
 fn store_to_file(secret: &Secret, secret_folder: &str, username : &str, master_key : &str) -> io::Result<u64> {
 
+    // Purge les fichier les plus vieux
+    keep_newest_files(&secret_folder, &username, 10);
+
     // Archive the original customer file into customer_archive_2020_05_22.enc
 
     let now: DateTime<Utc> = Utc::now();
@@ -681,10 +736,11 @@ fn store_to_file(secret: &Secret, secret_folder: &str, username : &str, master_k
     // Transform the transactions into json
     let json_transactions = serde_json::to_string(&secret)?;
 
+    dbg!(&json_transactions);
+
     // Encrypt the final json string
     let b = &json_transactions.into_bytes();
     let enc_json_transactions = DkEncrypt::encrypt_vec(&b, master_key).unwrap_or(vec![]);
-
 
     // Store the encrypted json into the customer.enc file.
     let mut f = File::create(&current_fullpath).expect("💣 Customer file should be here !!");
@@ -692,7 +748,6 @@ fn store_to_file(secret: &Secret, secret_folder: &str, username : &str, master_k
 
     Ok(copy)
 }
-
 
 ///
 /// Set properties[0] with the configuration file values
@@ -780,12 +835,12 @@ fn read_secret_file(username : &str, master_key : &str) -> Result<Secret, DkCryp
         }
     }
 
-
     let r_transactions: Result<Secret, _> = serde_json::from_str(json_transactions.as_str());
 
     let r_secret: Result<Secret, DkCryptoError>;
     match r_transactions {
         Ok(secret) => {
+            dbg!(&secret);
             r_secret = Ok(secret);
         }
         Err(e) => {
@@ -797,6 +852,39 @@ fn read_secret_file(username : &str, master_key : &str) -> Result<Secret, DkCryp
     r_secret
 }
 
+///
+/// Keep the n more recent file of the <folder> and that starts with prefix.
+///
+fn keep_newest_files(folder: &str, prefix: &str, n: usize) {
+    let mut files: Vec<_> = fs::read_dir(folder)
+        .expect("Erreur lors de la lecture du dossier")
+        .filter_map(|entry| {
+            let entry = entry.expect("Erreur lors de la lecture du fichier");
+            let file_path = entry.path();
+            let file_name = file_path.file_name()?.to_string_lossy().into_owned();
+            if file_name.starts_with(prefix) {
+                Some((file_path, entry.metadata().unwrap().modified().unwrap()))
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    dbg!(&files);
+
+    if files.len() > n {
+        files.sort_by(|(_, time1), (_, time2)| time2.cmp(time1));
+        dbg!(&files);
+
+        let to_be_deleted: Vec<_> = files.drain(n..).collect();
+        // files.drain(n..);
+
+        for (file_path, _) in to_be_deleted {
+            dbg!(&file_path);
+            fs::remove_file(file_path).expect("Erreur lors de la suppression du fichier");
+        }
+    }
+}
 
 fn main() {
     const PROGRAM_NAME: &str = "PPM Pretty Password Manager";
@@ -842,11 +930,13 @@ fn main() {
             decrypt_key,
             login,
             login_text,
-            setup, transaction, search,
-            index, search_page, input_page, style, script, resort_info, info_bar])
+            setup, transaction, search, categories,
+            index, search_page, input_page, setup_page, style, script, resort_info, info_bar])
         .attach(CORS)
         .attach(Template::fairing())
         .launch();
 
     info!("🏁 End {}", PROGRAM_NAME);
 }
+
+

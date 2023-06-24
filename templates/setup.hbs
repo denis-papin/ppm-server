@@ -1,8 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Saisie des informations</title>
-    <script src="/ppm/static/js/ppm.js"></script>
+    <title>Création d'un utilisateur</title>
     <style>
     body {
       display: flex;
@@ -49,48 +48,21 @@
 </div>
 
 <div class="info-box">
-    <h2>Saisie des informations</h2>
-
-    <input type="text" id="uuid" readonly><br>
-
-    <label for="title">Titre:</label>
-    <input type="text" id="title" placeholder="Titre" ><br>
-
+    <h2>Création d'un utilisateur</h2>
     <label for="username">Nom d'utilisateur:</label>
     <input type="text" id="username" placeholder="Username" ><br>
-
     <label for="password">Mot de passe:</label>
     <input type="password" id="password" placeholder="Password" ><br>
-
-    <label for="url">URL:</label>
-    <input type="text" id="url" placeholder="URL" ><br>
-
-    <label for="notes">Notes:</label>
-    <input type="text" id="notes" placeholder="Notes" ><br>
-
-    <label for="category">Catégorie:</label>
-<!--    <select id="category">-->
-<!--        <option>Aucune</option>-->
-<!--    </select>-->
-    <input type="text" id="category" placeholder="Catégorie" >
-    <span id="eye" style="cursor: pointer;">👁️</span>
-
-    <div id="categorySelection" style="display: none;">
-        <select id="categoryOptions"></select>
-    </div>
     <br>
-    <button onclick="saveEntry()">Enregistrer</button>
+    <button onclick="saveUser()">Enregistrer</button>
 </div>
 
+<script src="/ppm/static/js/ppm.js"></script>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
 <script>
-         // window.onload = fillEntry;
-         $(document).ready(function() {
-            fillEntry()
-             buildCatSelector()
-         });
-
+     // $(document).ready(function() {
+     // });
 </script>
 
 </body>

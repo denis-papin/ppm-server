@@ -98,6 +98,7 @@
 <div class="info-bar">
     <img src="login-icon.png" alt="Login Icon">
     <span>Connectez-vous pour accéder à votre compte</span>
+    <input type="button" value="Add user" onclick="navigateSetupPage()">
 </div>
 
 <div class="search-form">
@@ -107,6 +108,11 @@
 </div>
 
 <div id="results-container"></div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    window.onload = loadCategory;
+</script>
 
 </body>
 </html>
