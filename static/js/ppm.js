@@ -70,9 +70,14 @@ function performSearch(event) {
         });
 }
 
-function createField(label, value) {
+
+function createField(label, value, style) {
+
     const inputItem = document.createElement('div');
     inputItem.classList.add('result-value');
+    if (style !== null || style !== 'undefined' ) {
+       inputItem.classList.add(style);
+    }
 
     const labelItem = document.createElement('label');
     labelItem.textContent = label + ': ';
@@ -102,7 +107,7 @@ function drawEntry(result) {
     block.classList.add('result-block');
     localStorage.setItem(result.uuid, JSON.stringify(result));
     // block.appendChild(createField('UUID', result.uuid));
-    block.appendChild(createField('Titre', result.title));
+    block.appendChild(createField('Titre', result.title, 'result-value-title'));
     //block.appendChild(createField('Order', result.order));
     block.appendChild(createField("Nom d'utilisateur", result.username));
     block.appendChild(createField('Mot de passe', "•••••••" ));
@@ -132,6 +137,12 @@ function drawEntry(result) {
 
     return block;
 }
+
+  function handleKeyPress(event) {
+    if (event.keyCode === 13) {
+      performSearch(event);
+    }
+  }
 
 async function loadCategory() {
     const global_token = localStorage.getItem('TOKEN');

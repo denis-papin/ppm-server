@@ -18,22 +18,30 @@
       margin-right: 10px;
     }
 
-    .search-form {
-      margin-top: 20px;
-    }
+#user-info {
+    width: 1.8rem;
+    height: 1.8rem;
+}
 
-    .search-form input[type="text"] {
-      padding: 5px;
-      font-size: 16px;
-    }
+.icon-size {
+    width: 1.2rem;
+    height: 1.2rem;
+}
 
-    .search-form input[type="button"] {
-      padding: 5px 10px;
-      font-size: 16px;
-      background-color: #4CAF50;
-      color: white;
-      border: none;
-    }
+.search-form {
+  margin-top: 20px;
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: center;
+}
+
+.search-form input[type="text"] {
+    width: 50vw;
+  padding: 5px;
+  font-size: 16px;
+}
+
+
 
 /* Style des boîtes d'entrée */
 .result-block {
@@ -44,9 +52,9 @@
   box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
 }
 
-    body {
-      background-color: #f2f2f2;
-    }
+body {
+  background-color: #f2f2f2;
+}
 
 /* Style du titre */
 .result-title {
@@ -62,6 +70,10 @@
   margin-bottom: 10px;
 }
 
+.result-value-title input {
+    font-weight: bold;
+}
+
 .result-value label {
   margin-bottom: 5px;
   padding-left: 5px;
@@ -70,7 +82,7 @@
 }
 
 .result-value input {
- border: 1px solid #ccc;
+  border: 1px solid #ccc;
   background-color: white;
   padding: 10px;
   font-size: 14px;
@@ -79,8 +91,6 @@
   width: 100%;
   box-sizing: border-box;
 }
-
-
 
 /* Style de la grille responsive */
 .results-grid {
@@ -96,15 +106,14 @@
 </head>
 <body>
 <div class="info-bar">
-    <img src="login-icon.png" alt="Login Icon">
-    <span>Connectez-vous pour accéder à votre compte</span>
-    <input type="button" value="Add user" onclick="navigateSetupPage()">
+    <img id="user-info" src="/ppm/static/icon/user-info.png" alt="Information">
+    <img id="user-add" src="/ppm/static/icon/user-add.png" alt="Ajout d'un utilisateur" onclick="navigateSetupPage()">
+    <img id="add-entry" class="icon-size" src="/ppm/static/icon/add-entry.png" alt="Ajout d'une entrée" onclick="navigateInputPage('')">
 </div>
 
 <div class="search-form">
-    <input type="text" id="chars" placeholder="Recherche...">
-    <input type="button" value="Rechercher" onclick="performSearch(event)">
-    <input type="button" value="Ajouter" onclick="navigateInputPage('')">
+    <input type="text" id="chars" placeholder="Recherche..." onkeypress="handleKeyPress(event)">
+    <img id="search" class="icon-size" src="/ppm/static/icon/search.png" alt="Rechercher" onclick="performSearch(event)">
 </div>
 
 <div id="results-container"></div>
